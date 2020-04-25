@@ -64,10 +64,10 @@ export default class JMuxmer extends Event {
         /* events callback */
         this.remuxController.on('buffer', this.onBuffer.bind(this));
         this.remuxController.on('ready', this.createBuffer.bind(this));
-        this.startInterval();
     }
 
     setupMSE() {
+        debug.log('setupMSE');
         this.mediaSource = new MediaSource();
         this.node.src = URL.createObjectURL(this.mediaSource);
         this.mediaSource.addEventListener('sourceopen', this.onMSEOpen.bind(this));
@@ -107,6 +107,8 @@ export default class JMuxmer extends Event {
             return;
         }
         this.remuxController.remux(chunks);
+        this.releaseBuffer();
+        this.clearBuffer();
     }
 
     getVideoFrames(nalus, duration) {
@@ -182,7 +184,6 @@ export default class JMuxmer extends Event {
     }
 
     destroy() {
-        this.stopInterval();
         if (this.mediaSource) {
             try {
                 if (this.bufferControllers) {
@@ -209,6 +210,7 @@ export default class JMuxmer extends Event {
     }
 
     createBuffer() {
+        debug.log('createBuffer b');
         if (!this.mseReady || !this.remuxController || !this.remuxController.isReady() || this.bufferControllers) return;
         this.bufferControllers = {};
         for (let type in this.remuxController.tracks) {
@@ -221,23 +223,9 @@ export default class JMuxmer extends Event {
             this.bufferControllers[type] = new BufferController(sb, type);
             this.sourceBuffers[type] = sb;
             this.bufferControllers[type].on('error', this.onBufferError.bind(this));
+            this.mediaSource.duration = +Infinity;
         }
-    }
-
-    startInterval() {
-
-        this.interval = setInterval(()=>{
-            if (this.bufferControllers) {
-                this.releaseBuffer();
-                this.clearBuffer();
-            }
-        }, this.options.flushingTime);
-    }
-
-    stopInterval() {
-        if (this.interval) {
-            clearInterval(this.interval);
-        }
+        debug.log('createBuffer e');
     }
 
     releaseBuffer() {
@@ -287,20 +275,23 @@ export default class JMuxmer extends Event {
 
     /* Events on MSE */
     onMSEOpen() {
+        debug.log('onMSEOpen');
         this.mseReady = true;
-        if (typeof this.options.onReady === 'function') {
+        this.createBuffer();
+        if(typeof this.options.onReady === 'function') {
             this.options.onReady();
             this.options.onReady = null;
         }
-        this.createBuffer();
     }
 
     onMSEClose() {
+        debug.log('onMSEClose');
         this.mseReady = false;
         this.videoStarted = false;
     }
 
     onBufferError(data) {
+        debug.log('onBufferError', data);
         if (data.name == 'QuotaExceeded') {
             this.bufferControllers[data.type].initCleanup(this.node.currentTime);
             return;

@@ -7,7 +7,7 @@ export default class BufferController extends Event {
         super('buffer');
 
         this.type = type;
-        this.queue = new Uint8Array();
+        this.queue = [];
 
         this.cleaning = false;
         this.pendingCleaning = 0;
@@ -25,6 +25,11 @@ export default class BufferController extends Event {
                 this.doCleanup();
                 return;
             }
+        });
+
+        this.sourceBuffer.addEventListener('update', ()=>{
+            if(this.queue.length > 0 && !this.sourceBuffer.updating)
+                this.sourceBuffer.appendBuffer(this.queue.shift());
         });
 
         this.sourceBuffer.addEventListener('error', ()=> {
@@ -78,8 +83,7 @@ export default class BufferController extends Event {
         }
 
         try {
-            this.sourceBuffer.appendBuffer(this.queue);
-            this.queue = new Uint8Array();
+            this.sourceBuffer.appendBuffer(this.queue.shift());
         } catch (e) {
             if (e.name === 'QuotaExceededError') {
                 debug.log(`${this.type} buffer quota full`);
@@ -92,6 +96,6 @@ export default class BufferController extends Event {
     }
 
     feed(data) {
-        this.queue = appendByteArray(this.queue, data);
+        this.queue.push(data);
     }
 }
