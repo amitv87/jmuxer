@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>MSE jmuxer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+</head>
+<body id='body' style="margin:0 auto;">
+<style>
+  .flex-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    position: absolute;
+    flex-direction: column;
+  }
+</style>
+<div class="flex-container" style="background-color: black">
+  <video id="vid" preload="none" height="100%"></video>
+</div>
+<!-- <button style="position: absolute;" onclick="connect(this)">play</button> -->
+<script type="text/javascript" src="jmuxer.min.js"></script>
+<script>
+
+var vid = document.getElementById('vid');
+
+function h264MsePlayer(){
+
+  this.onReady = ()=>{
+    this.isReady = true;
+  }
+
+  this.muxer = new JMuxer({
+    node: vid,
+    mode: 'video',
+    fps: 60,
+    // debug:true,
+    onReady: this.onReady,
+  });
+
+  vid.play();
+  vid.autoplay = true;
+  vid.currentTime = Date.now();
+
+  this.queue = [];
+
+  this.play = (buffer)=>{
+    if(this.muxer.remuxController.initialized){
+      this.muxer.feed({video : new Uint8Array(buffer)});
+      return;
+    }
+    else this.queue.push(buffer);
+    if(this.isReady && this.queue.length >= 2){
+      var length = 0, total_length = 0;
+      this.queue.forEach((buff)=> total_length += buff.byteLength);
+      var arr = new Uint8Array(total_length);
+
+      while(this.queue.length){
+        var abuff = this.queue.shift();
+        arr.set(new Uint8Array(abuff), length);
+        length += abuff.byteLength;
+      }
+      this.muxer.feed({video : arr});
+    }
+  }
+
+  this.destroy = ()=>{
+    this.muxer.destroy();
+  }
+}
+
+// var socketURL = 'ws://192.168.0.137:5051';
+var wc, socketURL = 'ws://192.168.0.153:5051';
+function connect(e){
+  if(e) e.remove();
+  vid.play();
+  ws = new WebSocket(socketURL + '/video');
+  ws.binaryType = 'arraybuffer';
+  ws.onmessage = (event)=>{
+    if(typeof(event.data) != 'string') vidPlayer.play(event.data);
+    else{
+      console.log(event.data);
+      var obj = JSON.parse(event.data);
+      if(obj.status == 'config'){
+        if(window.vidPlayer) window.vidPlayer.destroy();
+        window.vidPlayer = new h264MsePlayer();
+      }
+    }
+  };
+}
+
+connect();
+ 
+</script>
+</body>
+</html>
