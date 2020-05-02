@@ -28,7 +28,7 @@ export default class BufferController extends Event {
         });
 
         this.sourceBuffer.addEventListener('update', ()=>{
-            if(this.queue.length > 0 && !this.sourceBuffer.updating)
+            if(this.queue && this.queue.length > 0 && !this.sourceBuffer.updating)
                 this.sourceBuffer.appendBuffer(this.queue.shift());
         });
 
@@ -76,7 +76,7 @@ export default class BufferController extends Event {
     }
 
     doAppend() {
-        if (!this.queue.length) return;
+        if (!this.queue || !this.queue.length) return;
 
         if (this.sourceBuffer.updating) {
             return;
